@@ -1,0 +1,33 @@
+#jssw_baseDiv {
+    background-color: lavender;
+}
+
+.jssw {
+    background-color: azure;
+}
+
+.jssw .issueData {}
+
+.jssw .issueData .issueId {}
+
+.jssw .issueData .issueName {}
+
+.jssw .time {
+    background-color: cornsilk;
+}
+
+.jssw .controls {}
+
+.jssw .controls .start {
+    background-color: salmon;
+}
+
+.jssw .controls .pause {
+    background-color: chartreuse;
+}
+
+.jssw .controls .reset {
+    background-color: aquamarine;
+}
+
+.jssw .controls .close {}
