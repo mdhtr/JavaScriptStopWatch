@@ -1,9 +1,15 @@
 #jsswBaseDiv {
     background-color: lavender;
+    position: absolute; 
+    top: 0px; 
+    left: 0px; 
+    z-index: 3000;
 }
 
 .jssw {
     background-color: azure;
+    width: 120px;
+    height: 40px;
 }
 
 .jssw .issueData {}

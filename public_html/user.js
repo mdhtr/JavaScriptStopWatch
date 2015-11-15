@@ -4,7 +4,6 @@ jssw.utils.getCurrentSecond = function () {
     return Math.round(new Date().getTime() / 1000);
 };
 jssw.StopWatchModel = jssw.StopWatchModel || function () {
-    this.status = 'empty';
     this.time = {start: 0, elapsed: 0};
     return this;
 };
@@ -16,11 +15,23 @@ jssw.StopWatch = jssw.StopWatch || function (model, view) {
     this.model = model;
     this.view = view;
 };
+
 jssw.StopWatchView.prototype.new = function () {
     // create div for instance
     var jsswBaseDiv = document.getElementById('jsswBaseDiv');
     this.div.jsswInstanceDiv = document.createElement("div");
     this.div.jsswInstanceDiv.className = "jssw";
+    // set positioning and draggable
+    this.div.jsswInstanceDiv.style.position = 'absolute';
+    this.div.jsswInstanceDiv.style.top = "200px";
+    this.div.jsswInstanceDiv.style.left = "40px";
+    $(this.div.jsswInstanceDiv).draggable({
+        snap: '.jssw',
+        scroll: false,
+        stack: "body",
+        containment: "document"
+    });
+    // create the rest of the div
     this.div.timeDiv = document.createElement("div");
     this.div.timeDiv.className = "time";
     this.div.controlsDiv = document.createElement("div");
@@ -45,11 +56,6 @@ jssw.StopWatchView.prototype.new = function () {
     this.div.controlsDiv.appendChild(this.div.pauseSpan);
     this.div.controlsDiv.appendChild(this.div.resetSpan);
     this.div.controlsDiv.appendChild(this.div.closeSpan);
-    //set default visibility of buttons:
-    this.div.startSpan.style.display = "inline";
-    this.div.pauseSpan.style.display = "none";
-    this.div.resetSpan.style.display = "none";
-    this.div.closeSpan.style.display = "inline";
 };
 jssw.StopWatchView.prototype.remove = function () {
     //console.log('remove is triggered');
@@ -60,6 +66,8 @@ jssw.StopWatchView.prototype.remove = function () {
     jsswBaseDiv.removeChild(this.div.jsswInstanceDiv);
 };
 jssw.StopWatch.prototype.new = function () {
+    // set initial state ofthe model to empty.
+    this.model.status = 'empty';
     // create div for instance
     this.view.new();
     this.view.div.timeDiv.innerHTML = this.model.time.elapsed;
@@ -68,6 +76,10 @@ jssw.StopWatch.prototype.new = function () {
     this.view.div.pauseSpan.addEventListener("click", this.pause.bind(this));
     this.view.div.resetSpan.addEventListener("click", this.reset.bind(this));
     this.view.div.closeSpan.addEventListener("click", this.close.bind(this));
+    this.view.div.startSpan.style.display = "inline";
+    this.view.div.pauseSpan.style.display = "none";
+    this.view.div.resetSpan.style.display = "none";
+    this.view.div.closeSpan.style.display = "inline";
 };
 jssw.StopWatch.prototype.start = function () {
     if (!(this.model.status === 'running')) {
@@ -133,6 +145,7 @@ jssw.StopWatch.prototype.close = function () {
     }
     // remove div
     this.view.remove();
+    this.view = null;
     //delete this; // does nothing
     //console.log('closed: ' + JSON.stringify(this));
 };
@@ -153,8 +166,8 @@ jssw.utils.initPage = function () {
     newStopperButton.addEventListener("click", jssw.utils.StopWatchConstructor);
     //console.log('initpage done');
 };
-jssw.utils.StopWatchConstructor = function(){
-  return new jssw.StopWatch(new jssw.StopWatchModel(), new jssw.StopWatchView()).new();
+jssw.utils.StopWatchConstructor = function () {
+    return new jssw.StopWatch(new jssw.StopWatchModel(), new jssw.StopWatchView()).new();
 };
 
 (function () {
