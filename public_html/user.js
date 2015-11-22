@@ -5,6 +5,7 @@ jssw.utils.getCurrentSecond = function () {
     return Math.round(new Date().getTime() / 1000);
 };
 jssw.preferences.idPrefix = "jssw_";
+jssw.preferences.queryForStorageChangesTimeoutSec = 5;
 
 jssw.utils.generateId = function () {
     return jssw.preferences.idPrefix + jssw.utils.getCurrentSecond();
@@ -224,13 +225,13 @@ jssw.utils.initPage = function () {
     document.body.appendChild(newStopperButton);
     newStopperButton.addEventListener("click", jssw.utils.StopWatchConstructor);
     // load existing stopwatches from localStorage
-    jssw.utils.LoadExistingFromStorage();
+    jssw.utils.loadExistingFromStorage();
 };
 jssw.utils.StopWatchConstructor = function () {
     return new jssw.StopWatch(
             new jssw.StopWatchModel(), new jssw.StopWatchView()).new();
 };
-jssw.utils.LoadExistingFromStorage = function() {
+jssw.utils.loadExistingFromStorage = function () {
     for (var i = 0; i < localStorage.length; i++) {
         var key = localStorage.key(i);
         var value = localStorage.getItem(key);
@@ -249,6 +250,20 @@ jssw.utils.LoadExistingFromStorage = function() {
     }
 };
 
+//jssw.utils.queryForStorageChanges = function () {
+//    // addition has to be checked
+//    // removal has to be checked
+//    // property changes have to be checked (status, time, position)
+//    console.log("query for storage changes");
+//    
+//    
+//    // calls itself again after the timeout
+//    setTimeout(jssw.utils.queryForStorageChanges,
+//            jssw.preferences.queryForStorageChangesTimeoutSec * 1000);
+//};
+
 (function () {
     jssw.utils.initPage();
+    jssw.utils.queryForStorageChanges();
+
 })();
