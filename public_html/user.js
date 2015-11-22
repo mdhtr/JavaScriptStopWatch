@@ -1,10 +1,20 @@
 var jssw = jssw || {};
 jssw.utils = jssw.utils || {};
+jssw.preferences = jssw.preferences || {};
 jssw.utils.getCurrentSecond = function () {
     return Math.round(new Date().getTime() / 1000);
 };
+jssw.preferences.idPrefix = "jssw_";
+
+jssw.utils.generateId = function () {
+    return jssw.preferences.idPrefix + jssw.utils.getCurrentSecond();
+};
+//#############################################################################
 jssw.StopWatchModel = jssw.StopWatchModel || function () {
     this.time = {start: 0, elapsed: 0};
+    this.state = '';
+    this.id = '';
+    this.position = {top: 240, left: 60};
     return this;
 };
 jssw.StopWatchView = jssw.StopWatchView || function () {
@@ -14,8 +24,9 @@ jssw.StopWatchView = jssw.StopWatchView || function () {
 jssw.StopWatch = jssw.StopWatch || function (model, view) {
     this.model = model;
     this.view = view;
+    return this;
 };
-
+//#############################################################################
 jssw.StopWatchView.prototype.new = function () {
     // create div for instance
     var jsswBaseDiv = document.getElementById('jsswBaseDiv');
@@ -23,14 +34,6 @@ jssw.StopWatchView.prototype.new = function () {
     this.div.jsswInstanceDiv.className = "jssw";
     // set positioning and draggable
     this.div.jsswInstanceDiv.style.position = 'absolute';
-    this.div.jsswInstanceDiv.style.top = "200px";
-    this.div.jsswInstanceDiv.style.left = "40px";
-    $(this.div.jsswInstanceDiv).draggable({
-        snap: '.jssw',
-        scroll: false,
-        stack: "body",
-        containment: "document"
-    });
     // create the rest of the div
     this.div.timeDiv = document.createElement("div");
     this.div.timeDiv.className = "time";
@@ -65,39 +68,62 @@ jssw.StopWatchView.prototype.remove = function () {
     }
     jsswBaseDiv.removeChild(this.div.jsswInstanceDiv);
 };
+//#############################################################################
 jssw.StopWatch.prototype.new = function () {
-    // set initial state ofthe model to empty.
-    this.model.status = 'empty';
-    // create div for instance
+    this.model.id = jssw.utils.generateId();
     this.view.new();
-    this.view.div.timeDiv.innerHTML = this.model.time.elapsed;
+    // connect view + model functionality:
+    this.setState('empty');
+    this.saveToStorage();
+    this.initialize();
+};
+jssw.StopWatch.prototype.restore = function () {
+    this.view.new();
+    this.initialize();
+    this.restoreState();
+};
+jssw.StopWatch.prototype.initialize = function () {
     // add event listeners
     this.view.div.startSpan.addEventListener("click", this.start.bind(this));
     this.view.div.pauseSpan.addEventListener("click", this.pause.bind(this));
     this.view.div.resetSpan.addEventListener("click", this.reset.bind(this));
     this.view.div.closeSpan.addEventListener("click", this.close.bind(this));
-    this.view.div.startSpan.style.display = "inline";
-    this.view.div.pauseSpan.style.display = "none";
-    this.view.div.resetSpan.style.display = "none";
-    this.view.div.closeSpan.style.display = "inline";
+    // write out elapsed time and restore div position
+    this.view.div.timeDiv.innerHTML = this.model.time.elapsed;
+    this.view.div.jsswInstanceDiv.style.top = this.model.position.top + "px";
+    this.view.div.jsswInstanceDiv.style.left = this.model.position.left + "px";
+    // set draggable and add dragstop event listener
+    this.setDraggableWithListener();
+};
+jssw.StopWatch.prototype.setDraggableWithListener = function () {
+    var controller = this;
+    $(controller.view.div.jsswInstanceDiv).draggable({
+        snap: '.jssw',
+        scroll: false,
+        stack: "body",
+        containment: "document",
+        stop: function (event, ui) {
+            controller.model.position = ui.helper.position() //save the new position to the object.
+            controller.saveToStorage();
+        }
+    });
 };
 jssw.StopWatch.prototype.start = function () {
-    if (!(this.model.status === 'running')) {
-        this.model.status = 'running';
-        // update div controls
-        //set visibility of buttons:
-        this.view.div.startSpan.style.display = "none";
-        this.view.div.pauseSpan.style.display = "inline";
-        this.view.div.resetSpan.style.display = "inline";
-        this.view.div.closeSpan.style.display = "none";
-        //console.log('started: ' + JSON.stringify(this));
+    if (this.model.state === 'running') { // it is running, or restored to runnign state.
+        this.pause(); // have to pause it first to be able to start it again.
+    }
+    if (!(this.model.state === 'running')) {
+        this.setState('running');
+        //console.log('started: ' + JSON.stringify(this.model));
         this.model.time.start = jssw.utils.getCurrentSecond() - this.model.time.elapsed;
+        this.saveToStorage();
         this.run();
     }
 };
 jssw.StopWatch.prototype.run = function () {
     // update model data (elapsed time)
     this.model.time.elapsed = jssw.utils.getCurrentSecond() - this.model.time.start;
+    this.saveToStorage();
     // update time div 
     this.view.div.timeDiv.innerHTML = this.model.time.elapsed;
     //console.log('Elapsed time: ' + this.model.time.elapsed);
@@ -107,50 +133,83 @@ jssw.StopWatch.prototype.wait = function () {
     this.timer = setTimeout(this.run.bind(this), 1000);
 };
 jssw.StopWatch.prototype.pause = function () {
-    if (!(this.model.status === 'paused' || this.model.status === 'empty')) {
-        this.model.status = 'paused';
-        // update div controls
-        //set visibility of buttons:
-        this.view.div.startSpan.innerHTML = " Continue ";
-        this.view.div.startSpan.style.display = "inline";
-        this.view.div.pauseSpan.style.display = "none";
-        this.view.div.resetSpan.style.display = "inline";
-        this.view.div.closeSpan.style.display = "none";
+    if (!(this.model.state === 'paused' || this.model.state === 'empty')) {
+        this.setState('paused');
+        this.saveToStorage();
         clearTimeout(this.timer);
         //console.log('paused: ' + JSON.stringify(this));
     }
 };
 jssw.StopWatch.prototype.reset = function () {
-    if (!(this.model.status === 'empty')) {
-        if (this.model.status === 'running') {
+    if (!(this.model.state === 'empty')) {
+        if (this.model.state === 'running') {
             this.pause();
         }
-        this.model.status = 'empty';
+        this.setState('empty');
         this.model.time.start = 0;
         this.model.time.elapsed = 0;
-        // update div controls
-        //set visibility of buttons:
-        this.view.div.startSpan.innerHTML = " Start ";
-        this.view.div.startSpan.style.display = "inline";
-        this.view.div.pauseSpan.style.display = "none";
-        this.view.div.resetSpan.style.display = "none";
-        this.view.div.closeSpan.style.display = "inline";
+        this.saveToStorage();
         this.view.div.timeDiv.innerHTML = this.model.time.elapsed;
         //console.log('resetted: ' + JSON.stringify(this));
     }
 };
 jssw.StopWatch.prototype.close = function () {
-    if (this.model.status !== 'empty') {
+    if (this.model.state !== 'empty') {
         this.reset();
     }
+    // remove from storage
+    localStorage.removeItem(this.model.id);
     // remove div
     this.view.remove();
     this.view = null;
-    //delete this; // does nothing
+    // remove model
+    this.model = null;
+    // remove 'this' ? 
     //console.log('closed: ' + JSON.stringify(this));
 };
-
+jssw.StopWatch.prototype.setState = function (state) {
+    if (state === 'running') {
+        this.model.state = 'running';
+        this.view.div.startSpan.style.display = "none";
+        this.view.div.pauseSpan.style.display = "inline";
+        this.view.div.resetSpan.style.display = "inline";
+        this.view.div.closeSpan.style.display = "none";
+    } else if (state === 'paused') {
+        this.model.state = 'paused';
+        this.view.div.startSpan.innerHTML = " Continue ";
+        this.view.div.startSpan.style.display = "inline";
+        this.view.div.pauseSpan.style.display = "none";
+        this.view.div.resetSpan.style.display = "inline";
+        this.view.div.closeSpan.style.display = "none";
+    } else if (state === 'empty') {
+        this.model.state = 'empty';
+        this.view.div.startSpan.innerHTML = " Start ";
+        this.view.div.startSpan.style.display = "inline";
+        this.view.div.pauseSpan.style.display = "none";
+        this.view.div.resetSpan.style.display = "none";
+        this.view.div.closeSpan.style.display = "inline";
+    }
+};
+jssw.StopWatch.prototype.restoreState = function () {
+    if (this.model.state === 'running') {
+        this.setState('running');
+        this.start();
+    } else if (this.model.state === 'paused') {
+        this.setState('paused');
+    } else if (this.model.state === 'empty') {
+        this.setState('empty');
+    }
+};
+//#############################################################################
+jssw.StopWatch.prototype.saveToStorage = function () {
+    var key = this.model.id;
+    var value = JSON.stringify(this.model);
+    localStorage.setItem(key, value); // sets value for key
+};
+//#############################################################################
 jssw.utils.initPage = function () {
+    // TODO check if javascript is enabled. if not, log error message to console, do not proceed with init.
+    // TODO check if jquery is loaded, wait for it, if waited long and could not load, log error to console, do not proceed with init.
     // create style element, fill it with the styling and add it to head
     // TODO the style should be in this file too.
     document.head.innerHTML += '<link rel="stylesheet" href="style.css" type="text/css"/>';
@@ -164,10 +223,30 @@ jssw.utils.initPage = function () {
     newStopperButton.innerHTML = '<button id="newStopWatch">New</button>';
     document.body.appendChild(newStopperButton);
     newStopperButton.addEventListener("click", jssw.utils.StopWatchConstructor);
-    //console.log('initpage done');
+    // load existing stopwatches from localStorage
+    jssw.utils.LoadExistingFromStorage();
 };
 jssw.utils.StopWatchConstructor = function () {
-    return new jssw.StopWatch(new jssw.StopWatchModel(), new jssw.StopWatchView()).new();
+    return new jssw.StopWatch(
+            new jssw.StopWatchModel(), new jssw.StopWatchView()).new();
+};
+jssw.utils.LoadExistingFromStorage = function() {
+    for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        var value = localStorage.getItem(key);
+        console.log(value);
+        try {
+            var restoredObject = JSON.parse(value);
+            if (restoredObject.id.slice(0, jssw.preferences.idPrefix.length)
+                    === jssw.preferences.idPrefix) {
+                new jssw.StopWatch(
+                        restoredObject, new jssw.StopWatchView()).restore();
+            }
+        }
+        catch (e) {
+            continue;
+        }
+    }
 };
 
 (function () {
