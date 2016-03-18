@@ -128,9 +128,9 @@ jssw.StopWatch.prototype.run = function () {
     // update time div 
     this.view.div.timeDiv.innerHTML = this.model.time.elapsed;
     //console.log('Elapsed time: ' + this.model.time.elapsed);
-    this.wait();
+    this.waitAndRun();
 };
-jssw.StopWatch.prototype.wait = function () {
+jssw.StopWatch.prototype.waitAndRun = function () {
     this.timer = setTimeout(this.run.bind(this), 1000);
 };
 jssw.StopWatch.prototype.pause = function () {
@@ -235,7 +235,7 @@ jssw.utils.loadExistingFromStorage = function () {
     for (var i = 0; i < localStorage.length; i++) {
         var key = localStorage.key(i);
         var value = localStorage.getItem(key);
-        console.log(value);
+        //console.log(value);
         try {
             var restoredObject = JSON.parse(value);
             if (restoredObject.id.slice(0, jssw.preferences.idPrefix.length)
@@ -250,17 +250,21 @@ jssw.utils.loadExistingFromStorage = function () {
     }
 };
 
-//jssw.utils.queryForStorageChanges = function () {
-//    // addition has to be checked
-//    // removal has to be checked
-//    // property changes have to be checked (status, time, position)
-//    console.log("query for storage changes");
-//    
-//    
-//    // calls itself again after the timeout
-//    setTimeout(jssw.utils.queryForStorageChanges,
-//            jssw.preferences.queryForStorageChangesTimeoutSec * 1000);
-//};
+jssw.utils.queryForStorageChanges = function () {
+    // addition has to be checked
+    // removal has to be checked
+    // property changes have to be checked (status, time, position)
+    //console.log("query for storage changes");
+    //jssw.utils.loadExistingFromStorage(); // creates anew every time
+    jssw.utils.waitAndQueryForStorageChanges();
+};
+jssw.utils.waitAndQueryForStorageChanges = function () {
+    //console.log("wait for query");
+    setTimeout(jssw.utils.queryForStorageChanges, jssw.preferences.queryForStorageChangesTimeoutSec * 1000);
+};
+
+
+
 
 (function () {
     jssw.utils.initPage();
