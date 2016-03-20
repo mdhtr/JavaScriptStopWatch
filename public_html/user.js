@@ -10,6 +10,9 @@ jssw.preferences.queryForStorageChangesTimeoutSec = 5;
 jssw.utils.generateId = function () {
     return jssw.preferences.idPrefix + jssw.utils.getCurrentSecond();
 };
+
+jssw.utils.activeEntities = {};
+
 //#############################################################################
 jssw.StopWatchModel = jssw.StopWatchModel || function () {
     this.time = {start: 0, elapsed: 0};
@@ -27,6 +30,16 @@ jssw.StopWatch = jssw.StopWatch || function (model, view) {
     this.view = view;
     return this;
 };
+//#############################################################################
+//jssw.StopWatchModel.prototype.update = function () {
+//    if (this.id === stopWatchModelObject.id) {
+//        this.time.start = stopWatchModelObject.time.start;
+//        this.time.elapsed = stopWatchModelObject.time.elapsed;
+//        this.state = stopWatchModelObject.state;
+//        this.position.top = stopWatchModelObject.position.top;
+//        this.position.left = stopWatchModelObject.position.left;
+//    }
+//};
 //#############################################################################
 jssw.StopWatchView.prototype.new = function () {
     // create div for instance
@@ -78,11 +91,27 @@ jssw.StopWatch.prototype.new = function () {
     this.saveToStorage();
     this.initialize();
 };
-jssw.StopWatch.prototype.restore = function () {
+jssw.StopWatch.prototype.restoreFromStorage = function () {
     this.view.new();
     this.initialize();
     this.restoreState();
 };
+
+jssw.StopWatch.prototype.updateFromStorage = function (stopWatchModelObject) {
+    this.model.state = stopWatchModelObject.state;
+    this.model.time.start = stopWatchModelObject.time.start;
+    this.model.time.elapsed = stopWatchModelObject.time.elapsed;
+    this.model.position.top = stopWatchModelObject.position.top;
+    this.model.position.left = stopWatchModelObject.position.left;
+
+    this.restoreState();
+
+    this.view.div.timeDiv.innerHTML = this.model.time.elapsed;
+    this.view.div.jsswInstanceDiv.style.top = this.model.position.top + "px";
+    this.view.div.jsswInstanceDiv.style.left = this.model.position.left + "px";
+
+};
+
 jssw.StopWatch.prototype.initialize = function () {
     // add event listeners
     this.view.div.startSpan.addEventListener("click", this.start.bind(this));
@@ -95,6 +124,9 @@ jssw.StopWatch.prototype.initialize = function () {
     this.view.div.jsswInstanceDiv.style.left = this.model.position.left + "px";
     // set draggable and add dragstop event listener
     this.setDraggableWithListener();
+    // add entity to activeEntities map with the id as a key
+    // to be able to query the entities for updates from storage across windows
+    jssw.utils.activeEntities[this.model.id] = this;
 };
 jssw.StopWatch.prototype.setDraggableWithListener = function () {
     var controller = this;
@@ -104,7 +136,7 @@ jssw.StopWatch.prototype.setDraggableWithListener = function () {
         stack: "body",
         containment: "document",
         stop: function (event, ui) {
-            controller.model.position = ui.helper.position() //save the new position to the object.
+            controller.model.position = ui.helper.position(); //save the new position to the object.
             controller.saveToStorage();
         }
     });
@@ -122,13 +154,27 @@ jssw.StopWatch.prototype.start = function () {
     }
 };
 jssw.StopWatch.prototype.run = function () {
-    // update model data (elapsed time)
-    this.model.time.elapsed = jssw.utils.getCurrentSecond() - this.model.time.start;
-    this.saveToStorage();
-    // update time div 
-    this.view.div.timeDiv.innerHTML = this.model.time.elapsed;
-    //console.log('Elapsed time: ' + this.model.time.elapsed);
-    this.waitAndRun();
+    var savedState;
+    try {
+        var value = localStorage.getItem(this.model.id);
+        var restoredObject = JSON.parse(value);
+        savedState = restoredObject.state;
+    } catch (e) {
+        console.log("Could not parse object: " + value + " " + e.message);
+    }
+    if (savedState === 'running') {
+        // update model data (elapsed time)
+        this.model.time.elapsed = jssw.utils.getCurrentSecond() - this.model.time.start;
+        this.saveToStorage();
+        // update time div 
+        this.view.div.timeDiv.innerHTML = this.model.time.elapsed;
+        //console.log('Elapsed time: ' + this.model.time.elapsed);
+        this.waitAndRun();
+    } else {
+        clearTimeout(this.timer);
+    }
+
+
 };
 jssw.StopWatch.prototype.waitAndRun = function () {
     this.timer = setTimeout(this.run.bind(this), 1000);
@@ -142,7 +188,7 @@ jssw.StopWatch.prototype.pause = function () {
     }
 };
 jssw.StopWatch.prototype.reset = function () {
-    if (!(this.model.state === 'empty')) {
+    if (this.model.state !== 'empty') {
         if (this.model.state === 'running') {
             this.pause();
         }
@@ -158,15 +204,18 @@ jssw.StopWatch.prototype.close = function () {
     if (this.model.state !== 'empty') {
         this.reset();
     }
+    // remove from active entities list
+    delete jssw.utils.activeEntities[this.model.id];
     // remove from storage
-    localStorage.removeItem(this.model.id);
+    if (localStorage.getItem(this.model.id) !== null) {
+        localStorage.removeItem(this.model.id);
+    }
     // remove div
     this.view.remove();
     this.view = null;
     // remove model
     this.model = null;
     // remove 'this' ? 
-    //console.log('closed: ' + JSON.stringify(this));
 };
 jssw.StopWatch.prototype.setState = function (state) {
     if (state === 'running') {
@@ -207,6 +256,63 @@ jssw.StopWatch.prototype.saveToStorage = function () {
     var value = JSON.stringify(this.model);
     localStorage.setItem(key, value); // sets value for key
 };
+jssw.utils.refreshFromStorage = function () {
+    for (var key in jssw.utils.activeEntities) {
+        if (localStorage.getItem(key) !== null) {
+            // property changes have to be checked (status, time, position)
+            var value = localStorage.getItem(key);
+            try {
+                var restoredObject = JSON.parse(value);
+                var entity = jssw.utils.activeEntities[key];
+                entity.updateFromStorage(restoredObject);
+                //console.log("should have updated");
+            } catch (e) {
+                console.log("Could not update object: " + value + " " + e.message);
+            }
+        }
+        if (localStorage.getItem(key) === null) {
+            // removal has to be checked
+            var entity = jssw.utils.activeEntities[key];
+            entity.close();
+        }
+    }
+    // addition has to be checked
+    jssw.utils.loadExistingFromStorage();
+};
+
+jssw.utils.loadExistingFromStorage = function () {
+    for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (jssw.utils.isOurObject(key)
+                && !jssw.utils.activeEntities.hasOwnProperty(key)) {
+            var value = localStorage.getItem(key);
+            try {
+                var restoredObject = JSON.parse(value);
+                new jssw.StopWatch(
+                        restoredObject, new jssw.StopWatchView())
+                        .restoreFromStorage();
+            } catch (e) {
+                console.log("Could not create object: " + value + " " + e.message);
+            }
+        }
+    }
+};
+
+jssw.utils.isOurObject = function (key) {
+    return key.length >= jssw.preferences.idPrefix.length
+            && key.slice(0, jssw.preferences.idPrefix.length)
+            === jssw.preferences.idPrefix;
+};
+
+jssw.utils.queryForStorageChanges = function () {
+    jssw.utils.refreshFromStorage();
+    jssw.utils.waitAndQueryForStorageChanges();
+};
+jssw.utils.waitAndQueryForStorageChanges = function () {
+    setTimeout(jssw.utils.queryForStorageChanges,
+            jssw.preferences.queryForStorageChangesTimeoutSec * 1000);
+};
+
 //#############################################################################
 jssw.utils.initPage = function () {
     // TODO check if javascript is enabled. if not, log error message to console, do not proceed with init.
@@ -225,46 +331,14 @@ jssw.utils.initPage = function () {
     document.body.appendChild(newStopperButton);
     newStopperButton.addEventListener("click", jssw.utils.StopWatchConstructor);
     // load existing stopwatches from localStorage
+    //localStorage.clear();
     jssw.utils.loadExistingFromStorage();
 };
+
 jssw.utils.StopWatchConstructor = function () {
     return new jssw.StopWatch(
             new jssw.StopWatchModel(), new jssw.StopWatchView()).new();
 };
-jssw.utils.loadExistingFromStorage = function () {
-    for (var i = 0; i < localStorage.length; i++) {
-        var key = localStorage.key(i);
-        var value = localStorage.getItem(key);
-        //console.log(value);
-        try {
-            var restoredObject = JSON.parse(value);
-            if (restoredObject.id.slice(0, jssw.preferences.idPrefix.length)
-                    === jssw.preferences.idPrefix) {
-                new jssw.StopWatch(
-                        restoredObject, new jssw.StopWatchView()).restore();
-            }
-        }
-        catch (e) {
-            continue;
-        }
-    }
-};
-
-jssw.utils.queryForStorageChanges = function () {
-    // addition has to be checked
-    // removal has to be checked
-    // property changes have to be checked (status, time, position)
-    //console.log("query for storage changes");
-    //jssw.utils.loadExistingFromStorage(); // creates anew every time
-    jssw.utils.waitAndQueryForStorageChanges();
-};
-jssw.utils.waitAndQueryForStorageChanges = function () {
-    //console.log("wait for query");
-    setTimeout(jssw.utils.queryForStorageChanges, jssw.preferences.queryForStorageChangesTimeoutSec * 1000);
-};
-
-
-
 
 (function () {
     jssw.utils.initPage();
