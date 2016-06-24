@@ -13,6 +13,22 @@ jssw.utils.generateId = function () {
 
 jssw.utils.activeEntities = {};
 
+jssw.utils.zeroPad = function (integer) {
+    var padSize = 2;
+    //var zeroString = "";
+    //for (var i = 0; i < padSize; i++) { zeroString += "0"; }; // dynamic fill
+    var zeroString = "0000000000"; // static fill
+    var concat = zeroString + integer.toString();
+    var padded = concat.slice((concat.length - padSize), (concat.length));
+    return padded;
+};
+jssw.utils.formatTime = function (seconds) {
+    var HH = jssw.utils.zeroPad(Math.floor(seconds / 3600));
+    var MM = jssw.utils.zeroPad(Math.floor((seconds % 3600) / 60));
+    var SS = jssw.utils.zeroPad((seconds % 60));
+    return "" + HH + ":" + MM + ":" + SS;
+};
+
 //#############################################################################
 jssw.StopWatchModel = jssw.StopWatchModel || function () {
     this.time = {start: 0, elapsed: 0};
@@ -30,16 +46,7 @@ jssw.StopWatch = jssw.StopWatch || function (model, view) {
     this.view = view;
     return this;
 };
-//#############################################################################
-//jssw.StopWatchModel.prototype.update = function () {
-//    if (this.id === stopWatchModelObject.id) {
-//        this.time.start = stopWatchModelObject.time.start;
-//        this.time.elapsed = stopWatchModelObject.time.elapsed;
-//        this.state = stopWatchModelObject.state;
-//        this.position.top = stopWatchModelObject.position.top;
-//        this.position.left = stopWatchModelObject.position.left;
-//    }
-//};
+
 //#############################################################################
 jssw.StopWatchView.prototype.new = function () {
     // create div for instance
@@ -97,6 +104,16 @@ jssw.StopWatch.prototype.restoreFromStorage = function () {
     this.restoreState();
 };
 
+jssw.StopWatch.prototype.updateViewWithElapsedTime = function(){
+    this.view.div.timeDiv.innerHTML = jssw.utils.formatTime(this.model.time.elapsed);
+};
+
+jssw.StopWatch.prototype.updateViewPosition = function(){
+    this.view.div.jsswInstanceDiv.style.top = this.model.position.top + "px";
+    this.view.div.jsswInstanceDiv.style.left = this.model.position.left + "px";
+};
+
+
 jssw.StopWatch.prototype.updateFromStorage = function (stopWatchModelObject) {
     this.model.state = stopWatchModelObject.state;
     this.model.time.start = stopWatchModelObject.time.start;
@@ -106,9 +123,8 @@ jssw.StopWatch.prototype.updateFromStorage = function (stopWatchModelObject) {
 
     this.restoreState();
 
-    this.view.div.timeDiv.innerHTML = this.model.time.elapsed;
-    this.view.div.jsswInstanceDiv.style.top = this.model.position.top + "px";
-    this.view.div.jsswInstanceDiv.style.left = this.model.position.left + "px";
+    this.updateViewWithElapsedTime();
+    this.updateViewPosition();
 
 };
 
@@ -119,9 +135,8 @@ jssw.StopWatch.prototype.initialize = function () {
     this.view.div.resetSpan.addEventListener("click", this.reset.bind(this));
     this.view.div.closeSpan.addEventListener("click", this.close.bind(this));
     // write out elapsed time and restore div position
-    this.view.div.timeDiv.innerHTML = this.model.time.elapsed;
-    this.view.div.jsswInstanceDiv.style.top = this.model.position.top + "px";
-    this.view.div.jsswInstanceDiv.style.left = this.model.position.left + "px";
+    this.updateViewWithElapsedTime();
+    this.updateViewPosition();
     // set draggable and add dragstop event listener
     this.setDraggableWithListener();
     // add entity to activeEntities map with the id as a key
@@ -155,7 +170,7 @@ jssw.StopWatch.prototype.start = function () {
 };
 jssw.StopWatch.prototype.run = function () {
     // update time div 
-    this.view.div.timeDiv.innerHTML = jssw.utils.getCurrentSecond() - this.model.time.start;
+    this.view.div.timeDiv.innerHTML = jssw.utils.formatTime(jssw.utils.getCurrentSecond() - this.model.time.start);
     //console.log('Elapsed time: ' + this.model.time.elapsed);
     this.waitAndRun();
 };
@@ -180,7 +195,7 @@ jssw.StopWatch.prototype.reset = function () {
         this.model.time.start = 0;
         this.model.time.elapsed = 0;
         this.saveToStorage();
-        this.view.div.timeDiv.innerHTML = this.model.time.elapsed;
+        this.updateViewWithElapsedTime();
         //console.log('resetted: ' + JSON.stringify(this));
     }
 };
