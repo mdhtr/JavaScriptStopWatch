@@ -154,27 +154,10 @@ jssw.StopWatch.prototype.start = function () {
     }
 };
 jssw.StopWatch.prototype.run = function () {
-    var savedState;
-    try {
-        var value = localStorage.getItem(this.model.id);
-        var restoredObject = JSON.parse(value);
-        savedState = restoredObject.state;
-    } catch (e) {
-        console.log("Could not parse object: " + value + " " + e.message);
-    }
-    if (savedState === 'running') {
-        // update model data (elapsed time)
-        this.model.time.elapsed = jssw.utils.getCurrentSecond() - this.model.time.start;
-        this.saveToStorage();
-        // update time div 
-        this.view.div.timeDiv.innerHTML = this.model.time.elapsed;
-        //console.log('Elapsed time: ' + this.model.time.elapsed);
-        this.waitAndRun();
-    } else {
-        clearTimeout(this.timer);
-    }
-
-
+    // update time div 
+    this.view.div.timeDiv.innerHTML = jssw.utils.getCurrentSecond() - this.model.time.start;
+    //console.log('Elapsed time: ' + this.model.time.elapsed);
+    this.waitAndRun();
 };
 jssw.StopWatch.prototype.waitAndRun = function () {
     this.timer = setTimeout(this.run.bind(this), 1000);
@@ -182,8 +165,9 @@ jssw.StopWatch.prototype.waitAndRun = function () {
 jssw.StopWatch.prototype.pause = function () {
     if (!(this.model.state === 'paused' || this.model.state === 'empty')) {
         this.setState('paused');
+        this.model.time.elapsed = jssw.utils.getCurrentSecond() - this.model.time.start;
+        this.model.time.start = 0;
         this.saveToStorage();
-        clearTimeout(this.timer);
         //console.log('paused: ' + JSON.stringify(this));
     }
 };
@@ -231,6 +215,7 @@ jssw.StopWatch.prototype.setState = function (state) {
         this.view.div.pauseSpan.style.display = "none";
         this.view.div.resetSpan.style.display = "inline";
         this.view.div.closeSpan.style.display = "none";
+        clearTimeout(this.timer);
     } else if (state === 'empty') {
         this.model.state = 'empty';
         this.view.div.startSpan.innerHTML = " Start ";
@@ -238,6 +223,7 @@ jssw.StopWatch.prototype.setState = function (state) {
         this.view.div.pauseSpan.style.display = "none";
         this.view.div.resetSpan.style.display = "none";
         this.view.div.closeSpan.style.display = "inline";
+        clearTimeout(this.timer);
     }
 };
 jssw.StopWatch.prototype.restoreState = function () {
