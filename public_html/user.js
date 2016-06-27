@@ -1,3 +1,15 @@
+// ==UserScript==
+// @name         JIRA Agile Board Stopwatch
+// @namespace    https://github.com/mdhtr
+// @version      0.1
+// @description  Convenient time measurement
+// @author       mdhtr
+// @match        https://chrome.google.com/webstore/search/tampermonkey?hl=en-US
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    'use strict';
 var jssw = jssw || {};
 jssw.utils = jssw.utils || {};
 jssw.preferences = jssw.preferences || {};
@@ -345,4 +357,5 @@ jssw.utils.StopWatchConstructor = function () {
     jssw.utils.initPage();
     jssw.utils.queryForStorageChanges();
 
+})();
 })();
