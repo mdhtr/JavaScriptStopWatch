@@ -5,26 +5,31 @@
 // @description  Convenient time measurement
 // @author       mdhtr
 // @match        https://chrome.google.com/webstore/search/tampermonkey?hl=en-US
+// @require    http://ajax.googleapis.com/ajax/libs/jquery/1.6/jquery.min.js
+// @require    http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js
+// @source     http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/base/jquery-ui.css
 // @grant        none
 // ==/UserScript==
 
 (function () {
     'use strict';
+//**************************************************
+// Stopwatch functionality
+//**************************************************
     var jssw = jssw || {};
-    jssw.utils = jssw.utils || {};
     jssw.preferences = jssw.preferences || {};
-    jssw.utils.getCurrentSecond = function () {
-        return Math.round(new Date().getTime() / 1000);
-    };
     jssw.preferences.idPrefix = "jssw_";
     jssw.preferences.queryForStorageChangesTimeoutSec = 5;
 
+//#############################################################################
+    jssw.utils = jssw.utils || {};
+    jssw.utils.getCurrentSecond = function () {
+        return Math.round(new Date().getTime() / 1000);
+    };
     jssw.utils.generateId = function () {
         return jssw.preferences.idPrefix + jssw.utils.getCurrentSecond();
     };
-
     jssw.utils.activeEntities = {};
-
     jssw.utils.zeroPad = function (integer) {
         var padSize = 2;
         //var zeroString = "";
@@ -327,12 +332,46 @@
     };
 
 //#############################################################################
+    var addStyleToHeader = function () {
+        var style = "" +
+                "#jsswBaseDiv {" +
+                "background-color: lavender;" +
+                "position: absolute;" +
+                "top: 0px;" +
+                "left: 0px;" +
+                "z-index: 3000;" +
+                "}" +
+                " .jssw {" +
+                "background-color: azure;" +
+                "width: 120px;" +
+                "height: 40px;" +
+                "}" +
+                " .jssw.issueData {}" +
+                " .jssw.issueData.issueId {}" +
+                " .jssw.issueData.issueName {}" +
+                " .jssw.time {" +
+                "background-color: cornsilk;" +
+                "}" +
+                " .jssw.controls {}" +
+                " .jssw.controls.start {" +
+                "background-color: salmon;" +
+                "}" +
+                " .jssw.controls.pause {" +
+                "background-color: chartreuse;" +
+                "}" +
+                " .jssw.controls.reset {" +
+                "background-color: aquamarine;" +
+                "}" +
+                " .jssw.controls.close {}";
+        document.head.appendChild(document.createElement("style")).appendChild(document.createTextNode(style));
+    };
     jssw.utils.initPage = function () {
         // TODO check if javascript is enabled. if not, log error message to console, do not proceed with init.
         // TODO check if jquery is loaded, wait for it, if waited long and could not load, log error to console, do not proceed with init.
         // create style element, fill it with the styling and add it to head
         // TODO the style should be in this file too.
-        document.head.innerHTML += '<link rel="stylesheet" href="style.css" type="text/css"/>';
+        addStyleToHeader();
+//        document.head.innerHTML += '<link rel="stylesheet" href="style.css" type="text/css"/>';
         // create base div & add it to body
         var baseDivInstance = document.body.insertBefore(document.createElement("div"), document.body.firstChild);
         baseDivInstance.id = "jsswBaseDiv";
@@ -356,6 +395,5 @@
     (function () {
         jssw.utils.initPage();
         jssw.utils.queryForStorageChanges();
-
     })();
 })();
